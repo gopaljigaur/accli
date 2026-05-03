@@ -30,10 +30,12 @@ On first run, you may need to grant Calendar access.
 - `setup` — trigger macOS Calendar permission prompt
 - `calendars` — list calendars
 - `events` — list events in a range
-- `event` — fetch a single event by ID
-- `create` — create an event (supports `--alert <minutes>`, repeatable)
-- `update` — update an event (supports `--alert <minutes>`, replaces all existing alerts)
-- `delete` — delete an event
+- `event` — fetch a single event by ID (includes alerts in output)
+- `create` — create an event (supports `--alert`, `--recur`, etc.)
+- `update` — update an event (supports `--dry-run`)
+- `delete` — delete an event (supports `--dry-run`)
+- `search` — search events across all calendars
+- `export` — export all events from all calendars
 - `freebusy` — show busy time slots
 - `config` — set/show/clear default calendar
 
@@ -48,9 +50,50 @@ accli create Home --summary "Standup" --start 2025-01-15T09:00 --end 2025-01-15T
 accli update Home <event-id> --alert 5 --alert 10
 ```
 
-`--alert` on update replaces all existing alerts. Omit to leave alerts unchanged.
+`--alert` on update replaces all existing alerts. Omit to leave alerts unchanged. The `accli event` command now includes alerts in its output.
 
 > Note: iCloud calendars preserve multiple alerts. Google Calendar via CalDAV syncs only one.
+
+## Search
+
+Search events across all calendars in a date range using a case-insensitive query matched against summary, location, and description.
+
+```bash
+accli search --query "standup" --from 2025-01-01 --to 2025-01-31
+accli search --query "meeting" --calendar-id "ABC123" --json
+```
+
+## Export
+
+Export all events from all calendars (or a subset) in a date range. Output is grouped by calendar.
+
+```bash
+accli export --from 2025-01-01 --to 2025-12-31 --json
+accli export --from 2025-01-01 --to 2025-03-31 --calendar-id "ABC123"
+```
+
+## Dry Run
+
+Use `--dry-run` on `delete` or `update` to preview what would happen without making any changes.
+
+```bash
+accli delete Work <event-id> --dry-run
+accli update Work <event-id> --summary "New title" --dry-run --json
+```
+
+## Recurring Events
+
+Create recurring events using `--recur` on the `create` command. Supported frequencies: `daily`, `weekly`, `monthly`, `yearly`.
+
+```bash
+accli create Work --summary "Weekly sync" --start 2025-01-15T10:00 --end 2025-01-15T11:00 --recur weekly
+accli create Work --summary "Daily standup" --start 2025-01-15T09:00 --end 2025-01-15T09:30 --recur daily --recur-count 20
+accli create Personal --summary "Birthday" --start 2025-06-01 --end 2025-06-01 --all-day --recur yearly --recur-end 2030-01-01
+```
+
+- `--recur-count <n>` — stop after N occurrences
+- `--recur-end <date>` — stop on or before the given date (YYYY-MM-DD)
+- Both `--recur-end` and `--recur-count` require `--recur` to be set
 
 ## JSON output
 

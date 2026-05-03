@@ -25,7 +25,7 @@ function parseArgs(args) {
       const key = arg.slice(2);
 
       // Handle boolean flags
-      if (key === 'json' || key === 'help' || key === 'version' || key === 'all-day' || key === 'no-all-day') {
+      if (key === 'json' || key === 'help' || key === 'version' || key === 'all-day' || key === 'no-all-day' || key === 'dry-run') {
         result.flags[key] = true;
         i++;
         continue;
@@ -105,6 +105,8 @@ COMMANDS:
   create       Create a new event
   update       Update an existing event
   delete       Delete an event
+  search       Search events across all calendars
+  export       Export all events from all calendars
   freebusy     Get busy time slots
   config       Manage configuration (default calendar)
 
@@ -208,12 +210,16 @@ OPTIONS:
   --description <d>    Event description
   --all-day            Create an all-day event
   --alert <minutes>    Alert N minutes before event (repeatable)
+  --recur <freq>       Recurrence frequency: daily, weekly, monthly, yearly
+  --recur-end <date>   End date for recurrence (YYYY-MM-DD)
+  --recur-count <n>    Number of occurrences
   --json               Output JSON
 
 EXAMPLES:
   accli create Work --summary "Meeting" --start 2025-01-15T14:00 --end 2025-01-15T15:00
   accli create Personal --summary "Holiday" --start 2025-12-25 --end 2025-12-25 --all-day
   accli create Work --summary "Standup" --start 2025-01-15T09:00 --end 2025-01-15T09:30 --alert 5 --alert 15
+  accli create Work --summary "Weekly sync" --start 2025-01-15T10:00 --end 2025-01-15T11:00 --recur weekly --recur-count 10
 `,
     update: `
 accli update - Update an existing event
@@ -233,12 +239,14 @@ OPTIONS:
   --all-day            Convert to all-day event
   --no-all-day         Convert to timed event
   --alert <minutes>    Replace all alerts with N minutes before event (repeatable)
+  --dry-run            Show what would be updated without making changes
   --json               Output JSON
 
 EXAMPLES:
   accli update Work event-id-123 --summary "Updated meeting"
   accli update Work event-id-123 --start 2025-01-15T15:00 --end 2025-01-15T16:00
   accli update Work event-id-123 --alert 5 --alert 15
+  accli update Work event-id-123 --summary "New title" --dry-run
 `,
     delete: `
 accli delete - Delete an event
@@ -250,11 +258,48 @@ OPTIONS:
   --calendar-id <id>        Persistent calendar ID (recommended)
   --calendar-index <index>  Unstable calendar index (deprecated)
   --calendar-name <name>    Calendar name (exact match)
+  --dry-run            Show what would be deleted without making changes
   --json               Output JSON
 
 EXAMPLES:
   accli delete Work event-id-123
   accli delete --calendar-id "ABC123" event-id-123
+  accli delete Work event-id-123 --dry-run
+`,
+    search: `
+accli search - Search events across all calendars
+
+USAGE:
+  accli search --query <q> [options]
+
+OPTIONS:
+  --query <q>          Search term (required, case-insensitive match on summary/location/description)
+  --from <datetime>    Start of range (default: now)
+  --to <datetime>      End of range (default: from + 7 days)
+  --max <n>            Maximum events to return (default: 50)
+  --calendar-id <id>   Limit to specific calendar ID (repeatable)
+  --json               Output JSON
+
+EXAMPLES:
+  accli search --query "standup" --from 2025-01-01 --to 2025-01-31
+  accli search --query "meeting" --calendar-id "ABC123" --calendar-id "DEF456"
+`,
+    export: `
+accli export - Export all events from all calendars
+
+USAGE:
+  accli export --from <datetime> --to <datetime> [options]
+
+OPTIONS:
+  --from <datetime>    Start of range (required)
+  --to <datetime>      End of range (required)
+  --max <n>            Maximum events per calendar (default: 500)
+  --calendar-id <id>   Limit to specific calendar ID (repeatable)
+  --json               Output JSON
+
+EXAMPLES:
+  accli export --from 2025-01-01 --to 2025-12-31
+  accli export --from 2025-01-01 --to 2025-03-31 --calendar-id "ABC123"
 `,
     freebusy: `
 accli freebusy - Get busy time slots
@@ -741,6 +786,24 @@ async function handleCreate(args) {
     alerts.push(minutes);
   }
 
+  const validRecurValues = ['daily', 'weekly', 'monthly', 'yearly'];
+
+  if (!args.flags.recur && (args.flags['recur-end'] || args.flags['recur-count'])) {
+    output.outputError(
+      { code: ERROR_CODES.INVALID_ARGUMENT, message: '--recur-end and --recur-count require --recur' },
+      { json: args.flags.json }
+    );
+    process.exit(EXIT_VALIDATION_ERROR);
+  }
+
+  if (args.flags.recur && !validRecurValues.includes(args.flags.recur)) {
+    output.outputError(
+      { code: ERROR_CODES.INVALID_ARGUMENT, message: `--recur must be one of: ${validRecurValues.join(', ')}` },
+      { json: args.flags.json }
+    );
+    process.exit(EXIT_VALIDATION_ERROR);
+  }
+
   const scriptArgs = {
     calendarName: calendarName || null,
     calendarId: resolvedCalendarId,
@@ -752,6 +815,9 @@ async function handleCreate(args) {
     description: args.flags.description || null,
     allDay,
     alerts,
+    recur: args.flags.recur || null,
+    recurEnd: args.flags['recur-end'] || null,
+    recurCount: args.flags['recur-count'] ? parseInt(args.flags['recur-count'], 10) : null,
   };
 
   const result = await runScript('create', scriptArgs);
@@ -920,6 +986,22 @@ async function handleUpdate(args) {
     alerts: updateAlerts,
   };
 
+  if (args.flags['dry-run']) {
+    const changes = {};
+    if (scriptArgs.summary !== null) changes.summary = scriptArgs.summary;
+    if (scriptArgs.start) changes.start = scriptArgs.start;
+    if (scriptArgs.end) changes.end = scriptArgs.end;
+    if (scriptArgs.location !== null) changes.location = scriptArgs.location;
+    if (scriptArgs.description !== null) changes.description = scriptArgs.description;
+    if (scriptArgs.alerts !== null) changes.alerts = scriptArgs.alerts;
+    output.output({
+      ok: true,
+      dryRun: true,
+      wouldUpdate: { eventId, changes },
+    }, { json: args.flags.json, formatter: output.formatDryRunUpdate });
+    process.exit(0);
+  }
+
   const result = await runScript('update', scriptArgs);
 
   if (result.success) {
@@ -1046,6 +1128,21 @@ async function handleDelete(args) {
     eventId,
   };
 
+  if (args.flags['dry-run']) {
+    const fetchResult = await runScript('event', scriptArgs);
+    if (fetchResult.success && fetchResult.data.event) {
+      const ev = fetchResult.data.event;
+      output.output({
+        ok: true,
+        dryRun: true,
+        wouldDelete: { id: ev.id, calendar: ev.calendar, summary: ev.summary, start: ev.start, end: ev.end },
+      }, { json: args.flags.json, formatter: output.formatDryRunDelete });
+    } else {
+      output.outputError(fetchResult.error || { code: 'EVENT_NOT_FOUND', message: 'Event not found' }, { json: args.flags.json });
+    }
+    process.exit(fetchResult.success ? 0 : fetchResult.exitCode);
+  }
+
   const result = await runScript('delete', scriptArgs);
 
   if (result.success) {
@@ -1120,6 +1217,111 @@ async function handleFreeBusy(args) {
     output.output(result.data, {
       json: args.flags.json,
       formatter: output.formatFreeBusy,
+    });
+  } else {
+    output.outputError(result.error, { json: args.flags.json });
+  }
+
+  process.exit(result.exitCode);
+}
+
+async function handleSearch(args) {
+  if (!args.flags.query) {
+    output.outputError(
+      { code: ERROR_CODES.MISSING_REQUIRED, message: '--query is required' },
+      { json: args.flags.json }
+    );
+    process.exit(EXIT_VALIDATION_ERROR);
+  }
+
+  if (args.flags.from && !isValidDatetime(args.flags.from)) {
+    output.outputError(
+      { code: ERROR_CODES.INVALID_DATETIME, message: `Invalid --from datetime: ${args.flags.from}` },
+      { json: args.flags.json }
+    );
+    process.exit(EXIT_VALIDATION_ERROR);
+  }
+
+  if (args.flags.to && !isValidDatetime(args.flags.to)) {
+    output.outputError(
+      { code: ERROR_CODES.INVALID_DATETIME, message: `Invalid --to datetime: ${args.flags.to}` },
+      { json: args.flags.json }
+    );
+    process.exit(EXIT_VALIDATION_ERROR);
+  }
+
+  const calendarIds = args.arrays['calendar-id'] || [];
+
+  const scriptArgs = {
+    query: args.flags.query,
+    from: args.flags.from || null,
+    to: args.flags.to || null,
+    max: args.flags.max ? parseInt(args.flags.max, 10) : 50,
+    calendarIds: calendarIds.length > 0 ? calendarIds : null,
+  };
+
+  const result = await runScript('search', scriptArgs);
+
+  if (result.success) {
+    output.output(result.data, {
+      json: args.flags.json,
+      formatter: output.formatSearch,
+    });
+  } else {
+    output.outputError(result.error, { json: args.flags.json });
+  }
+
+  process.exit(result.exitCode);
+}
+
+async function handleExport(args) {
+  if (!args.flags.from) {
+    output.outputError(
+      { code: ERROR_CODES.MISSING_REQUIRED, message: '--from is required' },
+      { json: args.flags.json }
+    );
+    process.exit(EXIT_VALIDATION_ERROR);
+  }
+
+  if (!args.flags.to) {
+    output.outputError(
+      { code: ERROR_CODES.MISSING_REQUIRED, message: '--to is required' },
+      { json: args.flags.json }
+    );
+    process.exit(EXIT_VALIDATION_ERROR);
+  }
+
+  if (!isValidDatetime(args.flags.from)) {
+    output.outputError(
+      { code: ERROR_CODES.INVALID_DATETIME, message: `Invalid --from datetime: ${args.flags.from}` },
+      { json: args.flags.json }
+    );
+    process.exit(EXIT_VALIDATION_ERROR);
+  }
+
+  if (!isValidDatetime(args.flags.to)) {
+    output.outputError(
+      { code: ERROR_CODES.INVALID_DATETIME, message: `Invalid --to datetime: ${args.flags.to}` },
+      { json: args.flags.json }
+    );
+    process.exit(EXIT_VALIDATION_ERROR);
+  }
+
+  const calendarIds = args.arrays['calendar-id'] || [];
+
+  const scriptArgs = {
+    from: args.flags.from,
+    to: args.flags.to,
+    max: args.flags.max ? parseInt(args.flags.max, 10) : 500,
+    calendarIds: calendarIds.length > 0 ? calendarIds : null,
+  };
+
+  const result = await runScript('export', scriptArgs);
+
+  if (result.success) {
+    output.output(result.data, {
+      json: args.flags.json,
+      formatter: output.formatExport,
     });
   } else {
     output.outputError(result.error, { json: args.flags.json });
@@ -1361,6 +1563,12 @@ async function main() {
       break;
     case 'delete':
       await handleDelete(args);
+      break;
+    case 'search':
+      await handleSearch(args);
+      break;
+    case 'export':
+      await handleExport(args);
       break;
     case 'freebusy':
       await handleFreeBusy(args);

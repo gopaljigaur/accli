@@ -90,6 +90,75 @@ describe('lib/output formatting', () => {
     expect(text).not.toMatch(/Alerts:/);
   });
 
+  test('formatSearch renders results', () => {
+    const text = output.formatSearch({
+      count: 1,
+      truncated: false,
+      events: [
+        {
+          id: 'E10',
+          summary: 'Standup',
+          allDay: false,
+          start: '2025-01-01T09:00:00',
+          end: '2025-01-01T09:30:00',
+          calendar: 'Work',
+          calendarId: 'CAL1',
+          isRecurring: false,
+        },
+      ],
+    });
+    expect(text).toMatch(/Search results \(1\):/);
+    expect(text).toMatch(/Standup/);
+    expect(text).toMatch(/Calendar: Work/);
+  });
+
+  test('formatSearch with no results', () => {
+    const text = output.formatSearch({ count: 0, truncated: false, events: [] });
+    expect(text).toMatch(/No search results found/);
+  });
+
+  test('formatExport renders grouped output', () => {
+    const text = output.formatExport({
+      totalEvents: 2,
+      calendars: [
+        {
+          id: 'CAL1',
+          name: 'Work',
+          source: 'iCloud',
+          events: [
+            {
+              id: 'E1',
+              summary: 'Meeting',
+              allDay: false,
+              start: '2025-01-01T10:00:00',
+              end: '2025-01-01T11:00:00',
+              calendar: 'Work',
+              isRecurring: false,
+            },
+            {
+              id: 'E2',
+              summary: 'Lunch',
+              allDay: false,
+              start: '2025-01-01T12:00:00',
+              end: '2025-01-01T13:00:00',
+              calendar: 'Work',
+              isRecurring: false,
+            },
+          ],
+        },
+      ],
+    });
+    expect(text).toMatch(/Export \(2 total events\):/);
+    expect(text).toMatch(/Calendar: Work/);
+    expect(text).toMatch(/Meeting/);
+    expect(text).toMatch(/Lunch/);
+  });
+
+  test('formatExport with no calendars', () => {
+    const text = output.formatExport({ totalEvents: 0, calendars: [] });
+    expect(text).toMatch(/No calendars found/);
+  });
+
   test('outputError prints NOT_AUTHORIZED tip in human mode', () => {
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
     try {

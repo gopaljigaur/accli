@@ -180,6 +180,95 @@ describe('--json flag works for validation failures (regression test)', () => {
   });
 });
 
+describe('--dry-run on delete and update', () => {
+  test('delete --dry-run exits 0 with dryRun: true in JSON', () => {
+    const tmp = makeTempHome();
+    try {
+      const r = runCli(['delete', 'Work', 'some-event-id', '--dry-run', '--json'], { env: { ACCLI_CONFIG_PATH: path.join(tmp.dir, '.acclirc') } });
+      expect(r.status).toBe(0);
+      const data = JSON.parse(r.stdout);
+      expect(data.dryRun).toBe(true);
+    } finally {
+      tmp.cleanup();
+    }
+  });
+
+  test('update --dry-run exits 0 with dryRun: true in JSON', () => {
+    const tmp = makeTempHome();
+    try {
+      const r = runCli(['update', 'Work', 'some-event-id', '--summary', 'New Title', '--dry-run', '--json'], { env: { ACCLI_CONFIG_PATH: path.join(tmp.dir, '.acclirc') } });
+      expect(r.status).toBe(0);
+      const data = JSON.parse(r.stdout);
+      expect(data.dryRun).toBe(true);
+      expect(data.wouldUpdate).toBeDefined();
+      expect(data.wouldUpdate.changes.summary).toBe('New Title');
+    } finally {
+      tmp.cleanup();
+    }
+  });
+});
+
+describe('accli search validation', () => {
+  test('search missing --query exits 2 with MISSING_REQUIRED', () => {
+    const tmp = makeTempHome();
+    try {
+      const r = runCli(['search', '--from', '2025-01-01', '--to', '2025-01-31', '--json'], { env: { ACCLI_CONFIG_PATH: path.join(tmp.dir, '.acclirc') } });
+      expect(r.status).toBe(2);
+      const data = JSON.parse(r.stdout);
+      expect(data.ok).toBe(false);
+      expect(data.error.code).toBe('MISSING_REQUIRED');
+    } finally {
+      tmp.cleanup();
+    }
+  });
+
+  test('search with --query succeeds', () => {
+    const tmp = makeTempHome();
+    try {
+      const r = runCli(['search', '--query', 'standup', '--from', '2025-01-01', '--to', '2025-01-31', '--json'], { env: { ACCLI_CONFIG_PATH: path.join(tmp.dir, '.acclirc') } });
+      expect(r.status).toBe(0);
+      const data = JSON.parse(r.stdout);
+      expect(Array.isArray(data.events)).toBe(true);
+    } finally {
+      tmp.cleanup();
+    }
+  });
+});
+
+describe('recurring event validation', () => {
+  test('--recur with invalid value exits 2 with INVALID_ARGUMENT', () => {
+    const tmp = makeTempHome();
+    try {
+      const r = runCli(
+        ['create', 'Work', '--summary', 'Test', '--start', '2025-01-15T09:00', '--end', '2025-01-15T10:00', '--recur', 'hourly', '--json'],
+        { env: { ACCLI_CONFIG_PATH: path.join(tmp.dir, '.acclirc') } }
+      );
+      expect(r.status).toBe(2);
+      const data = JSON.parse(r.stdout);
+      expect(data.ok).toBe(false);
+      expect(data.error.code).toBe('INVALID_ARGUMENT');
+    } finally {
+      tmp.cleanup();
+    }
+  });
+
+  test('--recur-end without --recur exits 2 with INVALID_ARGUMENT', () => {
+    const tmp = makeTempHome();
+    try {
+      const r = runCli(
+        ['create', 'Work', '--summary', 'Test', '--start', '2025-01-15T09:00', '--end', '2025-01-15T10:00', '--recur-end', '2025-12-31', '--json'],
+        { env: { ACCLI_CONFIG_PATH: path.join(tmp.dir, '.acclirc') } }
+      );
+      expect(r.status).toBe(2);
+      const data = JSON.parse(r.stdout);
+      expect(data.ok).toBe(false);
+      expect(data.error.code).toBe('INVALID_ARGUMENT');
+    } finally {
+      tmp.cleanup();
+    }
+  });
+});
+
 describe('--alert validation', () => {
   test('rejects non-numeric alert value', () => {
     const tmp = makeTempHome();
