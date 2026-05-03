@@ -21,9 +21,7 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
-      - run: npm install
-
-      - run: npm test
+      - run: npm ci
 
       - name: Check if version changed
         id: version_check
