@@ -2,8 +2,6 @@
 
 Apple Calendar CLI for macOS — manage calendars and events from the command line (via JXA + EventKit).
 
-> Forked from [joargp/accli](https://github.com/joargp/accli).
-
 ## Install
 
 ```bash
@@ -107,3 +105,7 @@ Designed for coding agents and automation: structured `--json` output on all com
 
 - macOS only (`darwin`), because it uses `osascript` + EventKit.
 - Config path defaults to `~/.acclirc` but can be overridden via `ACCLI_CONFIG_PATH` (or `ACCLI_HOME`).
+
+---
+
+Forked from [joargp/accli](https://github.com/joargp/accli).
