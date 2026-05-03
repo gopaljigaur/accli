@@ -4,7 +4,10 @@ description: Manage Apple Calendar events from the command line on macOS — cre
 author: gopaljigaur
 license: MIT
 platform: macOS
+homepage: https://github.com/gopaljigaur/accli
+source: https://github.com/gopaljigaur/accli
 requires:
+  platform: darwin
   binaries: [accli]
   install: "npm install -g @gopaljigaur/accli"
 tags: [calendar, macos, productivity, apple, events]
@@ -14,7 +17,21 @@ tags: [calendar, macos, productivity, apple, events]
 
 `accli` manages Apple Calendar on macOS via EventKit. All commands support `--json` for structured output. Exit codes: 0=success, 1=runtime error, 2=validation error, 10=auth error.
 
-**First run:** `accli setup` to grant Calendar permissions (Full Access required in System Settings > Privacy & Security > Calendars).
+**Platform:** macOS only (darwin). Uses `osascript` + EventKit. Do not run on non-macOS systems.
+
+**First run:** `accli setup` to grant Calendar permissions. Full Calendar Access is required in System Settings > Privacy & Security > Calendars. This gives the agent read and write access to all calendars on the device — install only if you intend to delegate calendar management to the agent.
+
+## Agent Safety Rules
+
+**Before any create, update, or delete operation:**
+1. Use `accli search` or `accli event` to confirm the correct event ID
+2. Run the command with `--dry-run` first and show the user the preview
+3. Require explicit user confirmation before executing the real mutation
+4. Scope all operations to specific `--calendar-id` values — never operate on all calendars unless the user explicitly requests it
+
+**For search and export:**
+- Always pass `--calendar-id` and narrow `--from`/`--to` ranges unless the user explicitly asks for a full export
+- Treat exported calendar data (summaries, locations, descriptions) as private — do not include it in summaries sent to third-party services
 
 ## Calendars
 
@@ -54,6 +71,7 @@ accli create <calendarName> --summary <text> --start <datetime> --end <datetime>
 - `--recur-end` and `--recur-count` are mutually exclusive
 - All-day events: use `YYYY-MM-DD` for `--start` and `--end`
 - Timed events: use `YYYY-MM-DDTHH:mm`
+- **Always confirm with user before creating** — calendar events cannot be easily bulk-undone
 
 ## Update Event
 
@@ -66,7 +84,12 @@ accli update <calendarName> <eventId> \
 ```
 
 `--alert` on update replaces all existing alerts. Omit `--alert` to leave alerts unchanged.
-`--dry-run` returns `{ dryRun: true, wouldUpdate: { eventId, changes } }` without modifying anything.
+
+**Mandatory dry-run flow:**
+```bash
+accli update Work <id> --summary "New title" --dry-run --json   # show user
+accli update Work <id> --summary "New title" --json              # only after user confirms
+```
 
 ## Delete Event
 
@@ -74,7 +97,11 @@ accli update <calendarName> <eventId> \
 accli delete <calendarName> <eventId> [--dry-run] [--json]
 ```
 
-`--dry-run` returns `{ dryRun: true, wouldDelete: { id, summary, calendar, start, end } }` without deleting.
+**Mandatory dry-run flow:**
+```bash
+accli delete Work <id> --dry-run --json   # show user what would be deleted
+accli delete Work <id> --json              # only after user confirms
+```
 
 ## Search
 
@@ -82,7 +109,7 @@ accli delete <calendarName> <eventId> [--dry-run] [--json]
 accli search --query <text> [--from <date>] [--to <date>] [--calendar-id <id>] [--json]
 ```
 
-Case-insensitive search across summary, location, and description. Searches all calendars unless `--calendar-id` is provided. Returns events with `calendarId` field for targeting.
+Case-insensitive search across summary, location, and description. Scope with `--calendar-id` and a narrow date range. Do not expose raw results to third-party services without user consent.
 
 ## Export
 
@@ -90,7 +117,7 @@ Case-insensitive search across summary, location, and description. Searches all 
 accli export --from <date> --to <date> [--calendar-id <id>] [--json]
 ```
 
-Exports all events grouped by calendar. Response: `{ calendars: [{ id, name, source, events, truncated }], totalEvents, truncated }`. Each calendar truncates at 500 events per calendar and sets `truncated: true` if hit.
+Exports all events grouped by calendar. Response: `{ calendars: [{ id, name, source, events, truncated }], totalEvents, truncated }`. Each calendar truncates at 500 events and sets `truncated: true` if hit. **Use narrow date ranges and specific calendar IDs unless the user explicitly requests a full backup.**
 
 ## Free/Busy
 
@@ -108,23 +135,12 @@ accli config show [--json]
 accli config clear [--json]
 ```
 
-Persists default calendar to `~/.acclirc` (override with `ACCLI_CONFIG_PATH`). Commands that require a calendar use the default when no calendar is specified.
+Persists default calendar to `~/.acclirc` (override with `ACCLI_CONFIG_PATH`).
 
 ## DateTime Formats
 
 - Timed: `YYYY-MM-DDTHH:mm` or `YYYY-MM-DDTHH:mm:ss`
 - Date-only (all-day events, --from/--to): `YYYY-MM-DD`
-
-## Agent Best Practices
-
-- Always use `--json` for programmatic parsing
-- Use `--calendar-id` not calendar name (stable across renames)
-- Use `--dry-run` before destructive operations to confirm target event
-- Use `accli search` to find event IDs before update/delete
-- Check `ok: false` in JSON response before proceeding
-- `accli export` is suitable for full calendar backup; check `truncated` field
-- Multiple alerts: repeat `--alert` flag — e.g. `--alert 5 --alert 15`
-- macOS only — do not attempt on non-darwin systems
 
 ## Error Codes
 
