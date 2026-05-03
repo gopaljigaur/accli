@@ -241,8 +241,8 @@
         for (var ai = 0; ai < alarms.count; ai++) {
           var alarm = alarms.objectAtIndex(ai);
           var offset = unwrap(alarm.relativeOffset);
-          if (typeof offset === 'number') {
-            alerts.push(Math.round(Math.abs(offset) / 60));
+          if (typeof offset === 'number' && offset <= 0) {
+            alerts.push(Math.round(-offset / 60));
           }
         }
       }

@@ -257,7 +257,7 @@
       var freq = freqMap[args.recur];
       var recurrenceEnd = null;
       if (args.recurEnd) {
-        recurrenceEnd = $.EKRecurrenceEnd.recurrenceEndWithEndDate(toNSDate(new Date(args.recurEnd)));
+        recurrenceEnd = $.EKRecurrenceEnd.recurrenceEndWithEndDate(toNSDate(parseDateTime(args.recurEnd, false, false)));
       } else if (args.recurCount) {
         recurrenceEnd = $.EKRecurrenceEnd.recurrenceEndWithOccurrenceCount(args.recurCount);
       }

@@ -796,6 +796,14 @@ async function handleCreate(args) {
     process.exit(EXIT_VALIDATION_ERROR);
   }
 
+  if (args.flags['recur-end'] && args.flags['recur-count']) {
+    output.outputError(
+      { code: ERROR_CODES.INVALID_ARGUMENT, message: '--recur-end and --recur-count are mutually exclusive' },
+      { json: args.flags.json }
+    );
+    process.exit(EXIT_VALIDATION_ERROR);
+  }
+
   if (args.flags.recur && !validRecurValues.includes(args.flags.recur)) {
     output.outputError(
       { code: ERROR_CODES.INVALID_ARGUMENT, message: `--recur must be one of: ${validRecurValues.join(', ')}` },

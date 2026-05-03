@@ -139,6 +139,15 @@
         }
       }
     }
+    for (var fk = 0; fk < args.calendarIds.length; fk++) {
+      var fkFound = false;
+      for (var fl = 0; fl < filteredCalendars.length; fl++) {
+        if (filteredCalendars[fl].id === args.calendarIds[fk]) { fkFound = true; break; }
+      }
+      if (!fkFound) {
+        return JSON.stringify({ ok: false, error: { code: 'CALENDAR_NOT_FOUND', message: 'Calendar with ID "' + args.calendarIds[fk] + '" not found' } });
+      }
+    }
   }
 
   var fromDate = parseDateTime(args.from);
@@ -147,6 +156,7 @@
 
   var calendarResults = [];
   var totalEvents = 0;
+  var anyTruncated = false;
 
   for (var ki = 0; ki < filteredCalendars.length; ki++) {
     var calInfo = filteredCalendars[ki];
@@ -158,6 +168,7 @@
     var events = store.eventsMatchingPredicate(predicate);
 
     var calEvents = [];
+    var calTruncated = events.count > maxEvents;
     for (var i = 0; i < events.count && calEvents.length < maxEvents; i++) {
       var event = events.objectAtIndex(i);
 
@@ -203,17 +214,20 @@
       return a.start.localeCompare(b.start);
     });
 
+    if (calTruncated) anyTruncated = true;
     totalEvents += calEvents.length;
     calendarResults.push({
       id: calInfo.id,
       name: calInfo.name,
       source: calInfo.source,
-      events: calEvents
+      events: calEvents,
+      truncated: calTruncated
     });
   }
 
   return JSON.stringify({
     calendars: calendarResults,
-    totalEvents: totalEvents
+    totalEvents: totalEvents,
+    truncated: anyTruncated
   });
 })();
