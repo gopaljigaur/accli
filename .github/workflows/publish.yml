@@ -54,3 +54,13 @@ jobs:
           gh release create "v$VERSION" \
             --title "v$VERSION" \
             --generate-notes
+
+      - name: Publish to ClawHub
+        if: steps.version_check.outputs.changed == 'true'
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+        run: |
+          npm install -g clawhub
+          clawhub login --token "$CLAWHUB_TOKEN" --no-browser
+          VERSION="${{ steps.version_check.outputs.current }}"
+          clawhub skill publish . --slug accli-plus --name "Apple Calendar CLI Plus" --version "$VERSION" --changelog "Release $VERSION"
