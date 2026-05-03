@@ -1,7 +1,6 @@
 # accli
 
-[![npm version](https://img.shields.io/npm/v/@gopaljigaur/accli)](https://www.npmjs.com/package/@gopaljigaur/accli)
-[![npm downloads](https://img.shields.io/npm/dt/@gopaljigaur/accli)](https://www.npmjs.com/package/@gopaljigaur/accli)
+[![npm](https://img.shields.io/npm/v/@gopaljigaur/accli)](https://www.npmjs.com/package/@gopaljigaur/accli)
 [![clawhub skill](https://img.shields.io/badge/clawhub-accli--plus-00c896)](https://clawhub.ai/gopaljigaur/accli-plus)
 
 Apple Calendar CLI for macOS — manage calendars and events from the command line (via JXA + EventKit).
