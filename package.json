@@ -1,5 +1,5 @@
 {
-  "name": "@joargp/accli",
+  "name": "@gopaljigaur/accli",
   "version": "1.0.0",
   "description": "Apple Calendar CLI for macOS - manage calendars and events from the command line",
   "main": "lib/index.js",
@@ -18,7 +18,7 @@
     "cli",
     "jxa"
   ],
-  "author": "Joar G.P. <joargp@gmail.com>",
+  "author": "Gopalji Gaur <gopaljigaur@gmail.com>",
   "license": "MIT",
   "engines": {
     "node": ">=14.0.0"
@@ -30,10 +30,7 @@
     "README.md",
     "LICENSE"
   ],
-  "os": [
-    "darwin"
-  ],
-  "publishConfig": {
+"publishConfig": {
     "access": "public"
   },
   "devDependencies": {
