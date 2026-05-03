@@ -2,8 +2,7 @@ name: Publish to npm
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
 
 jobs:
   publish:
@@ -22,4 +21,19 @@ jobs:
 
       - run: npm test
 
-      - run: npm publish --provenance --access public
+      - name: Check if version changed
+        id: version_check
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          PUBLISHED=$(npm view @gopaljigaur/accli version 2>/dev/null || echo "0.0.0")
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "published=$PUBLISHED" >> $GITHUB_OUTPUT
+          if [ "$CURRENT" != "$PUBLISHED" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish
+        if: steps.version_check.outputs.changed == 'true'
+        run: npm publish --provenance --access public
