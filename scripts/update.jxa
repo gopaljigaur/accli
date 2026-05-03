@@ -327,6 +327,20 @@
       event.endDate = toNSDate(newEnd);
     }
 
+    if (args.alerts !== null && args.alerts !== undefined) {
+      var existingAlarms = event.alarms;
+      if (existingAlarms && existingAlarms.count > 0) {
+        for (var ri = existingAlarms.count - 1; ri >= 0; ri--) {
+          event.removeAlarm(existingAlarms.objectAtIndex(ri));
+        }
+      }
+      for (var ai = 0; ai < args.alerts.length; ai++) {
+        var offsetSeconds = -args.alerts[ai] * 60;
+        var alarm = $.EKAlarm.alarmWithRelativeOffset(offsetSeconds);
+        event.addAlarm(alarm);
+      }
+    }
+
     var err = Ref();
     var saved = store.saveEventSpanError(event, $.EKSpanThisEvent, err);
     if (!saved) {
@@ -347,17 +361,23 @@
       displayEnd.setDate(displayEnd.getDate() - 1);
     }
 
+    var resultEvent = {
+      id: unwrap(event.eventIdentifier),
+      calendar: calendarInfo.name,
+      calendarId: calendarInfo.id,
+      summary: unwrap(event.title) || '',
+      allDay: updatedAllDay,
+      start: updatedAllDay ? formatDateOnly(updatedStart) : formatLocalDate(updatedStart),
+      end: updatedAllDay ? formatDateOnly(displayEnd) : formatLocalDate(displayEnd)
+    };
+
+    if (args.alerts !== null && args.alerts !== undefined) {
+      resultEvent.alerts = args.alerts;
+    }
+
     return JSON.stringify({
       ok: true,
-      event: {
-        id: unwrap(event.eventIdentifier),
-        calendar: calendarInfo.name,
-        calendarId: calendarInfo.id,
-        summary: unwrap(event.title) || '',
-        allDay: updatedAllDay,
-        start: updatedAllDay ? formatDateOnly(updatedStart) : formatLocalDate(updatedStart),
-        end: updatedAllDay ? formatDateOnly(displayEnd) : formatLocalDate(displayEnd)
-      },
+      event: resultEvent,
       warning: warning
     });
   } catch (e) {

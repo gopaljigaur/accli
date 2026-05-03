@@ -239,6 +239,14 @@
       event.notes = args.description;
     }
 
+    if (args.alerts && args.alerts.length > 0) {
+      for (var ai = 0; ai < args.alerts.length; ai++) {
+        var offsetSeconds = -args.alerts[ai] * 60;
+        var alarm = $.EKAlarm.alarmWithRelativeOffset(offsetSeconds);
+        event.addAlarm(alarm);
+      }
+    }
+
     var err = Ref();
     var saved = store.saveEventSpanError(event, $.EKSpanThisEvent, err);
     if (!saved) {
@@ -274,6 +282,10 @@
 
     if (args.description) {
       result.event.description = args.description;
+    }
+
+    if (args.alerts && args.alerts.length > 0) {
+      result.event.alerts = args.alerts;
     }
 
     return JSON.stringify(result);

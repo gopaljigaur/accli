@@ -2,10 +2,12 @@
 
 Apple Calendar CLI for macOS — manage calendars and events from the command line (via JXA + EventKit).
 
+> Forked from [joargp/accli](https://github.com/joargp/accli).
+
 ## Install
 
 ```bash
-npm i -g @joargp/accli
+npm i -g @gopaljigaur/accli
 ```
 
 ## Quick start
@@ -29,13 +31,26 @@ On first run, you may need to grant Calendar access.
 - `calendars` — list calendars
 - `events` — list events in a range
 - `event` — fetch a single event by ID
-- `create` — create an event
-- `update` — update an event
+- `create` — create an event (supports `--alert <minutes>`, repeatable)
+- `update` — update an event (supports `--alert <minutes>`, replaces all existing alerts)
 - `delete` — delete an event
 - `freebusy` — show busy time slots
 - `config` — set/show/clear default calendar
 
 Run `accli <command> --help` for command-specific options.
+
+## Alerts
+
+Set one or more alerts on create or update using `--alert <minutes>` (minutes before event start). Repeatable.
+
+```bash
+accli create Home --summary "Standup" --start 2025-01-15T09:00 --end 2025-01-15T09:30 --alert 5 --alert 15
+accli update Home <event-id> --alert 5 --alert 10
+```
+
+`--alert` on update replaces all existing alerts. Omit to leave alerts unchanged.
+
+> Note: iCloud calendars preserve multiple alerts. Google Calendar via CalDAV syncs only one.
 
 ## JSON output
 

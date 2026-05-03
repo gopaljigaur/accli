@@ -179,3 +179,37 @@ describe('--json flag works for validation failures (regression test)', () => {
     }
   });
 });
+
+describe('--alert validation', () => {
+  test('rejects non-numeric alert value', () => {
+    const tmp = makeTempHome();
+    try {
+      const r = runCli(
+        ['create', 'Work', '--summary', 'Test', '--start', '2025-01-15T09:00', '--end', '2025-01-15T10:00', '--alert', 'abc', '--json'],
+        { env: { ACCLI_CONFIG_PATH: path.join(tmp.dir, '.acclirc') } }
+      );
+      expect(r.status).toBe(2);
+      const data = JSON.parse(r.stdout);
+      expect(data.ok).toBe(false);
+      expect(data.error.code).toBe('INVALID_ARGUMENT');
+    } finally {
+      tmp.cleanup();
+    }
+  });
+
+  test('rejects negative alert value', () => {
+    const tmp = makeTempHome();
+    try {
+      const r = runCli(
+        ['create', 'Work', '--summary', 'Test', '--start', '2025-01-15T09:00', '--end', '2025-01-15T10:00', '--alert', '-5', '--json'],
+        { env: { ACCLI_CONFIG_PATH: path.join(tmp.dir, '.acclirc') } }
+      );
+      expect(r.status).toBe(2);
+      const data = JSON.parse(r.stdout);
+      expect(data.ok).toBe(false);
+      expect(data.error.code).toBe('INVALID_ARGUMENT');
+    } finally {
+      tmp.cleanup();
+    }
+  });
+});

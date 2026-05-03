@@ -57,6 +57,39 @@ describe('lib/output formatting', () => {
     expect(text).toMatch(/Description: A+\.\.\./);
   });
 
+  test('formatCreate renders alerts when present', () => {
+    const text = output.formatCreate({
+      ok: true,
+      event: {
+        id: 'E1',
+        summary: 'Standup',
+        allDay: false,
+        start: '2025-01-15T09:00:00',
+        end: '2025-01-15T09:30:00',
+        calendar: 'Work',
+        alerts: [5, 15],
+      },
+    });
+    expect(text).toMatch(/Alerts:/);
+    expect(text).toMatch(/5 min before/);
+    expect(text).toMatch(/15 min before/);
+  });
+
+  test('formatCreate omits alerts line when no alerts', () => {
+    const text = output.formatCreate({
+      ok: true,
+      event: {
+        id: 'E1',
+        summary: 'Standup',
+        allDay: false,
+        start: '2025-01-15T09:00:00',
+        end: '2025-01-15T09:30:00',
+        calendar: 'Work',
+      },
+    });
+    expect(text).not.toMatch(/Alerts:/);
+  });
+
   test('outputError prints NOT_AUTHORIZED tip in human mode', () => {
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
     try {
