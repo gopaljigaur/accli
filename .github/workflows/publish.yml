@@ -41,6 +41,21 @@ jobs:
         if: steps.version_check.outputs.changed == 'true'
         run: npm publish --provenance
 
+      - name: Publish to ClawHub
+        if: steps.version_check.outputs.changed == 'true'
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+        run: |
+          npm install -g clawhub@0.12.2
+          clawhub login --token "$CLAWHUB_TOKEN" --no-browser
+          VERSION="${{ steps.version_check.outputs.current }}"
+          CLAWHUB_PUBLISHED=$(clawhub inspect accli-plus --json 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).latestVersion" 2>/dev/null || echo "0.0.0")
+          if [ "$VERSION" != "$CLAWHUB_PUBLISHED" ]; then
+            clawhub skill publish . --slug accli-plus --name "Apple Calendar CLI Plus" --version "$VERSION" --changelog "Release $VERSION"
+          else
+            echo "ClawHub accli-plus@$VERSION already published, skipping"
+          fi
+
       - name: Create GitHub release
         if: steps.version_check.outputs.changed == 'true'
         env:
@@ -54,13 +69,3 @@ jobs:
           gh release create "v$VERSION" \
             --title "v$VERSION" \
             --generate-notes
-
-      - name: Publish to ClawHub
-        if: steps.version_check.outputs.changed == 'true'
-        env:
-          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
-        run: |
-          npm install -g clawhub
-          clawhub login --token "$CLAWHUB_TOKEN" --no-browser
-          VERSION="${{ steps.version_check.outputs.current }}"
-          clawhub skill publish . --slug accli-plus --name "Apple Calendar CLI Plus" --version "$VERSION" --changelog "Release $VERSION"
