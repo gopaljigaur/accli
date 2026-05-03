@@ -8,6 +8,11 @@ Apple Calendar CLI for macOS — manage calendars and events from the command li
 npm i -g @gopaljigaur/accli
 ```
 
+**OpenClaw skill:**
+```bash
+clawhub install accli-plus
+```
+
 ## Quick start
 
 ```bash
