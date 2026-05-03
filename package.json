@@ -18,6 +18,10 @@
     "cli",
     "jxa"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gopaljigaur/accli"
+  },
   "author": "Gopalji Gaur <gopaljigaur@gmail.com>",
   "license": "MIT",
   "engines": {
