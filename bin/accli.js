@@ -31,8 +31,8 @@ function parseArgs(args) {
         continue;
       }
 
-      // Handle array flags (--calendar, --calendar-id, --calendar-index can be repeated)
-      if (key === 'calendar' || key === 'calendar-id' || key === 'calendar-index') {
+      // Handle array flags (--calendar, --calendar-id, --calendar-index, --alert can be repeated)
+      if (key === 'calendar' || key === 'calendar-id' || key === 'calendar-index' || key === 'alert') {
         const value = args[i + 1];
         if (value === undefined || value.startsWith('--')) {
           return {
@@ -207,11 +207,13 @@ OPTIONS:
   --location <l>       Event location
   --description <d>    Event description
   --all-day            Create an all-day event
+  --alert <minutes>    Alert N minutes before event (repeatable)
   --json               Output JSON
 
 EXAMPLES:
   accli create Work --summary "Meeting" --start 2025-01-15T14:00 --end 2025-01-15T15:00
   accli create Personal --summary "Holiday" --start 2025-12-25 --end 2025-12-25 --all-day
+  accli create Work --summary "Standup" --start 2025-01-15T09:00 --end 2025-01-15T09:30 --alert 5 --alert 15
 `,
     update: `
 accli update - Update an existing event
@@ -230,11 +232,13 @@ OPTIONS:
   --description <d>    New description
   --all-day            Convert to all-day event
   --no-all-day         Convert to timed event
+  --alert <minutes>    Replace all alerts with N minutes before event (repeatable)
   --json               Output JSON
 
 EXAMPLES:
   accli update Work event-id-123 --summary "Updated meeting"
   accli update Work event-id-123 --start 2025-01-15T15:00 --end 2025-01-15T16:00
+  accli update Work event-id-123 --alert 5 --alert 15
 `,
     delete: `
 accli delete - Delete an event
@@ -723,6 +727,20 @@ async function handleCreate(args) {
     }
   }
 
+  const alertValues = args.arrays['alert'] || [];
+  const alerts = [];
+  for (const a of alertValues) {
+    const minutes = parseInt(a, 10);
+    if (isNaN(minutes) || minutes < 0) {
+      output.outputError(
+        { code: ERROR_CODES.INVALID_ARGUMENT, message: `--alert must be a non-negative integer (minutes), got: ${a}` },
+        { json: args.flags.json }
+      );
+      process.exit(EXIT_VALIDATION_ERROR);
+    }
+    alerts.push(minutes);
+  }
+
   const scriptArgs = {
     calendarName: calendarName || null,
     calendarId: resolvedCalendarId,
@@ -733,6 +751,7 @@ async function handleCreate(args) {
     location: args.flags.location || null,
     description: args.flags.description || null,
     allDay,
+    alerts,
   };
 
   const result = await runScript('create', scriptArgs);
@@ -871,6 +890,20 @@ async function handleUpdate(args) {
     process.exit(EXIT_VALIDATION_ERROR);
   }
 
+  const updateAlertValues = args.arrays['alert'] || [];
+  const updateAlerts = updateAlertValues.length > 0 ? [] : null;
+  for (const a of updateAlertValues) {
+    const minutes = parseInt(a, 10);
+    if (isNaN(minutes) || minutes < 0) {
+      output.outputError(
+        { code: ERROR_CODES.INVALID_ARGUMENT, message: `--alert must be a non-negative integer (minutes), got: ${a}` },
+        { json: args.flags.json }
+      );
+      process.exit(EXIT_VALIDATION_ERROR);
+    }
+    updateAlerts.push(minutes);
+  }
+
   const scriptArgs = {
     calendarName: calendarName || null,
     calendarId: resolvedCalendarId,
@@ -884,6 +917,7 @@ async function handleUpdate(args) {
     description: args.flags.description !== undefined ? args.flags.description : null,
     allDay: args.flags['all-day'] || false,
     noAllDay: args.flags['no-all-day'] || false,
+    alerts: updateAlerts,
   };
 
   const result = await runScript('update', scriptArgs);
