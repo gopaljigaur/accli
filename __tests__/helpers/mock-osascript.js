@@ -16,7 +16,16 @@ function respondForWrappedScript(wrappedScript) {
     return { ok: true, count: 0, truncated: false, events: [] };
   }
   if (wrappedScript.includes('event.jxa')) {
+    if (wrappedScript.includes('"eventId":"some-event-id"') || wrappedScript.includes('"eventId": "some-event-id"')) {
+      return { event: { id: 'some-event-id', calendar: 'Work', calendarId: 'CAL1', summary: 'Stub Event', start: '2025-01-15T10:00:00', end: '2025-01-15T11:00:00', allDay: false, isRecurring: false, alerts: [] } };
+    }
     return { ok: false, error: { code: 'EVENT_NOT_FOUND', message: 'missing' } };
+  }
+  if (wrappedScript.includes('search.jxa')) {
+    return { ok: true, count: 0, truncated: false, events: [] };
+  }
+  if (wrappedScript.includes('export.jxa')) {
+    return { ok: true, calendars: [], totalEvents: 0 };
   }
   if (wrappedScript.includes('freebusy.jxa')) {
     return { ok: true, busy: [] };

@@ -234,6 +234,22 @@
       // ignore
     }
 
+    var alerts = [];
+    try {
+      var alarms = event.alarms;
+      if (alarms && alarms.count > 0) {
+        for (var ai = 0; ai < alarms.count; ai++) {
+          var alarm = alarms.objectAtIndex(ai);
+          var offset = unwrap(alarm.relativeOffset);
+          if (typeof offset === 'number') {
+            alerts.push(Math.round(Math.abs(offset) / 60));
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
     return JSON.stringify({
       event: {
         id: unwrap(event.eventIdentifier),
@@ -248,7 +264,8 @@
         end: allDay ? formatDateOnly(displayEndDate) : formatLocalDate(displayEndDate),
         startISO: formatISO(startDate),
         endISO: formatISO(endDate),
-        isRecurring: isRecurring
+        isRecurring: isRecurring,
+        alerts: alerts
       }
     });
   } catch (e) {

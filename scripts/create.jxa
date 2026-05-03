@@ -247,6 +247,24 @@
       }
     }
 
+    if (args.recur) {
+      var freqMap = {
+        daily: $.EKRecurrenceFrequencyDaily,
+        weekly: $.EKRecurrenceFrequencyWeekly,
+        monthly: $.EKRecurrenceFrequencyMonthly,
+        yearly: $.EKRecurrenceFrequencyYearly
+      };
+      var freq = freqMap[args.recur];
+      var recurrenceEnd = null;
+      if (args.recurEnd) {
+        recurrenceEnd = $.EKRecurrenceEnd.recurrenceEndWithEndDate(toNSDate(new Date(args.recurEnd)));
+      } else if (args.recurCount) {
+        recurrenceEnd = $.EKRecurrenceEnd.recurrenceEndWithOccurrenceCount(args.recurCount);
+      }
+      var rule = $.EKRecurrenceRule.alloc.initRecurrenceWithFrequencyIntervalEnd(freq, 1, recurrenceEnd || null);
+      event.addRecurrenceRule(rule);
+    }
+
     var err = Ref();
     var saved = store.saveEventSpanError(event, $.EKSpanThisEvent, err);
     if (!saved) {
@@ -272,7 +290,9 @@
         summary: args.summary,
         allDay: !!args.allDay,
         start: args.allDay ? args.start : formatLocalDate(createdStart),
-        end: displayEnd
+        end: displayEnd,
+        isRecurring: !!args.recur,
+        recur: args.recur || null
       }
     };
 

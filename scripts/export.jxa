@@ -1,0 +1,219 @@
+// export.jxa - Export all events from all calendars (EventKit)
+// __args is injected by jxa-runner.js
+// Expected args: { from, to, max, calendarIds }
+
+(function() {
+  ObjC.import('Foundation');
+  ObjC.import('EventKit');
+
+  var args = __args;
+
+  function unwrap(x) {
+    return ObjC.unwrap(x);
+  }
+
+  function toNSDate(date) {
+    return $.NSDate.dateWithTimeIntervalSince1970(date.getTime() / 1000);
+  }
+
+  function ensureCalendarAccess(store) {
+    var status = $.EKEventStore.authorizationStatusForEntityType($.EKEntityTypeEvent);
+
+    var fullAccessStatus =
+      typeof $.EKAuthorizationStatusFullAccess !== 'undefined' ? $.EKAuthorizationStatusFullAccess : null;
+    var writeOnlyStatus =
+      typeof $.EKAuthorizationStatusWriteOnly !== 'undefined' ? $.EKAuthorizationStatusWriteOnly : null;
+
+    if (status === $.EKAuthorizationStatusAuthorized || (fullAccessStatus !== null && status === fullAccessStatus)) {
+      return { ok: true };
+    }
+
+    if (writeOnlyStatus !== null && status === writeOnlyStatus) {
+      return {
+        ok: false,
+        error: {
+          code: 'NOT_AUTHORIZED',
+          message:
+            'Calendar access is set to Add Only (write-only). Change it to Full Access in System Settings > Privacy & Security > Calendars (Options… button).'
+        }
+      };
+    }
+
+    if (status === $.EKAuthorizationStatusNotDetermined) {
+      var done = false;
+      var granted = false;
+
+      if (store.respondsToSelector($.NSSelectorFromString($('requestFullAccessToEventsWithCompletion:')))) {
+        store.requestFullAccessToEventsWithCompletion(function(g, err) {
+          granted = !!g;
+          done = true;
+        });
+      } else {
+        store.requestAccessToEntityTypeCompletion($.EKEntityTypeEvent, function(g, err) {
+          granted = !!g;
+          done = true;
+        });
+      }
+
+      var start = $.NSDate.date;
+      while (!done) {
+        var elapsed = $.NSDate.date.timeIntervalSinceDate(start);
+        if (elapsed > 15.0) {
+          done = true;
+          granted = false;
+          break;
+        }
+        $.NSRunLoop.currentRunLoop.runUntilDate($.NSDate.dateWithTimeIntervalSinceNow(0.05));
+      }
+
+      if (granted) {
+        return { ok: true };
+      }
+    }
+
+    return {
+      ok: false,
+      error: {
+        code: 'NOT_AUTHORIZED',
+        message:
+          'Calendar access not granted. Enable Full Access (not Add Only) in System Settings > Privacy & Security > Calendars (Options… button) for the responsible app (often \"osascript\" and/or your terminal).'
+      }
+    };
+  }
+
+  function formatLocalDate(date) {
+    var year = date.getFullYear();
+    var month = String(date.getMonth() + 1).padStart(2, '0');
+    var day = String(date.getDate()).padStart(2, '0');
+    var hours = String(date.getHours()).padStart(2, '0');
+    var minutes = String(date.getMinutes()).padStart(2, '0');
+    var seconds = String(date.getSeconds()).padStart(2, '0');
+    return year + '-' + month + '-' + day + 'T' + hours + ':' + minutes + ':' + seconds;
+  }
+
+  function formatDateOnly(date) {
+    var year = date.getFullYear();
+    var month = String(date.getMonth() + 1).padStart(2, '0');
+    var day = String(date.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
+  }
+
+  function formatISO(date) {
+    return date.toISOString();
+  }
+
+  function parseDateTime(str) {
+    if (!str) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      return new Date(str + 'T00:00:00');
+    }
+    return new Date(str);
+  }
+
+  var store = $.EKEventStore.alloc.init;
+  var access = ensureCalendarAccess(store);
+  if (!access.ok) {
+    return JSON.stringify({ ok: false, error: access.error });
+  }
+
+  var allCalendarsRaw = store.calendarsForEntityType($.EKEntityTypeEvent);
+  var allCalendars = [];
+  for (var ci = 0; ci < allCalendarsRaw.count; ci++) {
+    var cal = allCalendarsRaw.objectAtIndex(ci);
+    allCalendars.push({
+      cal: cal,
+      id: unwrap(cal.calendarIdentifier),
+      name: unwrap(cal.title),
+      source: unwrap(cal.source.title)
+    });
+  }
+
+  var filteredCalendars = allCalendars;
+  if (args.calendarIds && args.calendarIds.length > 0) {
+    filteredCalendars = [];
+    for (var fi = 0; fi < allCalendars.length; fi++) {
+      for (var fj = 0; fj < args.calendarIds.length; fj++) {
+        if (allCalendars[fi].id === args.calendarIds[fj]) {
+          filteredCalendars.push(allCalendars[fi]);
+          break;
+        }
+      }
+    }
+  }
+
+  var fromDate = parseDateTime(args.from);
+  var toDate = parseDateTime(args.to);
+  var maxEvents = args.max || 500;
+
+  var calendarResults = [];
+  var totalEvents = 0;
+
+  for (var ki = 0; ki < filteredCalendars.length; ki++) {
+    var calInfo = filteredCalendars[ki];
+    var predicate = store.predicateForEventsWithStartDateEndDateCalendars(
+      toNSDate(fromDate),
+      toNSDate(toDate),
+      $([calInfo.cal])
+    );
+    var events = store.eventsMatchingPredicate(predicate);
+
+    var calEvents = [];
+    for (var i = 0; i < events.count && calEvents.length < maxEvents; i++) {
+      var event = events.objectAtIndex(i);
+
+      try {
+        var startDate = unwrap(event.startDate);
+        var endDate = unwrap(event.endDate);
+
+        var allDay = !!unwrap(event.allDay);
+        var displayEndDate = endDate;
+        if (allDay) {
+          displayEndDate = new Date(endDate.getTime());
+          displayEndDate.setDate(displayEndDate.getDate() - 1);
+        }
+
+        var isRecurring = false;
+        try {
+          isRecurring = event.recurrenceRules && event.recurrenceRules.count > 0;
+        } catch (e) {
+          // ignore
+        }
+
+        calEvents.push({
+          id: unwrap(event.eventIdentifier),
+          uid: unwrap(event.calendarItemIdentifier),
+          calendar: calInfo.name,
+          calendarId: calInfo.id,
+          summary: unwrap(event.title) || '',
+          location: unwrap(event.location) || '',
+          description: unwrap(event.notes) || '',
+          allDay: allDay,
+          start: allDay ? formatDateOnly(startDate) : formatLocalDate(startDate),
+          end: allDay ? formatDateOnly(displayEndDate) : formatLocalDate(displayEndDate),
+          startISO: formatISO(startDate),
+          endISO: formatISO(endDate),
+          isRecurring: isRecurring
+        });
+      } catch (e) {
+        continue;
+      }
+    }
+
+    calEvents.sort(function(a, b) {
+      return a.start.localeCompare(b.start);
+    });
+
+    totalEvents += calEvents.length;
+    calendarResults.push({
+      id: calInfo.id,
+      name: calInfo.name,
+      source: calInfo.source,
+      events: calEvents
+    });
+  }
+
+  return JSON.stringify({
+    calendars: calendarResults,
+    totalEvents: totalEvents
+  });
+})();
