@@ -267,6 +267,23 @@ describe('recurring event validation', () => {
       tmp.cleanup();
     }
   });
+
+  test('--recur-end and --recur-count together exits 2 with INVALID_ARGUMENT', () => {
+    const tmp = makeTempHome();
+    try {
+      const r = runCli(
+        ['create', 'Work', '--summary', 'Test', '--start', '2025-01-15T09:00', '--end', '2025-01-15T10:00', '--recur', 'weekly', '--recur-end', '2025-12-31', '--recur-count', '10', '--json'],
+        { env: { ACCLI_CONFIG_PATH: path.join(tmp.dir, '.acclirc') } }
+      );
+      expect(r.status).toBe(2);
+      const data = JSON.parse(r.stdout);
+      expect(data.ok).toBe(false);
+      expect(data.error.code).toBe('INVALID_ARGUMENT');
+      expect(data.error.message).toMatch(/mutually exclusive/);
+    } finally {
+      tmp.cleanup();
+    }
+  });
 });
 
 describe('--alert validation', () => {
