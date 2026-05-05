@@ -245,8 +245,24 @@
       // ignore
     }
 
-    if (isRecurring) {
-      warning = 'This is a recurring event; only this occurrence was updated';
+    var spanArg = args.span || 'this';
+    // Guard for direct/standalone invocation outside the CLI (CLI validates first)
+    if (spanArg !== 'this' && spanArg !== 'future' && spanArg !== 'all') {
+      return JSON.stringify({
+        ok: false,
+        error: { code: 'INVALID_ARGUMENT', message: '--span must be one of: this, future, all' }
+      });
+    }
+
+    if (!isRecurring && spanArg !== 'this') {
+      spanArg = 'this';
+    }
+
+    var spanMap = { all: $.EKSpanAllEvents, future: $.EKSpanFutureEvents, this: $.EKSpanThisEvent };
+    var span = spanMap[spanArg];
+
+    if (isRecurring && spanArg === 'this') {
+      warning = 'Recurring event: only this occurrence updated. Use --span future or --span all to update more.';
     }
 
     var targetAllDay = currentAllDay;
@@ -342,7 +358,7 @@
     }
 
     var err = Ref();
-    var saved = store.saveEventSpanError(event, $.EKSpanThisEvent, err);
+    var saved = store.saveEventSpanError(event, span, err);
     if (!saved) {
       var e = err[0];
       var msg = e ? unwrap(e.localizedDescription) : 'Unknown error';

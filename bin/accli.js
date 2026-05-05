@@ -7,6 +7,8 @@ const config = require('../lib/config');
 const { spawnSync } = require('child_process');
 const readline = require('readline');
 
+const VALID_SPANS = ['this', 'future', 'all'];
+
 // Parse command line arguments
 // Returns { ok: true, result: {...} } or { ok: false, error: {...} }
 function parseArgs(args) {
@@ -239,6 +241,7 @@ OPTIONS:
   --all-day            Convert to all-day event
   --no-all-day         Convert to timed event
   --alert <minutes>    Replace all alerts with N minutes before event (repeatable)
+  --span <scope>       For recurring events: this (default), future, all
   --dry-run            Show what would be updated without making changes
   --json               Output JSON
 
@@ -247,6 +250,7 @@ EXAMPLES:
   accli update Work event-id-123 --start 2025-01-15T15:00 --end 2025-01-15T16:00
   accli update Work event-id-123 --alert 5 --alert 15
   accli update Work event-id-123 --summary "New title" --dry-run
+  accli update Work event-id-123 --summary "New title" --span all
 `,
     delete: `
 accli delete - Delete an event
@@ -258,6 +262,7 @@ OPTIONS:
   --calendar-id <id>        Persistent calendar ID (recommended)
   --calendar-index <index>  Unstable calendar index (deprecated)
   --calendar-name <name>    Calendar name (exact match)
+  --span <scope>       For recurring events: this (default), future, all
   --dry-run            Show what would be deleted without making changes
   --json               Output JSON
 
@@ -265,6 +270,7 @@ EXAMPLES:
   accli delete Work event-id-123
   accli delete --calendar-id "ABC123" event-id-123
   accli delete Work event-id-123 --dry-run
+  accli delete Work event-id-123 --span all
 `,
     search: `
 accli search - Search events across all calendars
@@ -992,7 +998,16 @@ async function handleUpdate(args) {
     allDay: args.flags['all-day'] || false,
     noAllDay: args.flags['no-all-day'] || false,
     alerts: updateAlerts,
+    span: args.flags.span || 'this',
   };
+
+  if (!VALID_SPANS.includes(scriptArgs.span)) {
+    output.outputError(
+      { code: ERROR_CODES.INVALID_ARGUMENT, message: `--span must be one of: ${VALID_SPANS.join(', ')}` },
+      { json: args.flags.json }
+    );
+    process.exit(EXIT_VALIDATION_ERROR);
+  }
 
   if (args.flags['dry-run']) {
     const changes = {};
@@ -1129,11 +1144,21 @@ async function handleDelete(args) {
     process.exit(EXIT_VALIDATION_ERROR);
   }
 
+  const span = args.flags.span || 'this';
+  if (!VALID_SPANS.includes(span)) {
+    output.outputError(
+      { code: ERROR_CODES.INVALID_ARGUMENT, message: `--span must be one of: ${VALID_SPANS.join(', ')}` },
+      { json: args.flags.json }
+    );
+    process.exit(EXIT_VALIDATION_ERROR);
+  }
+
   const scriptArgs = {
     calendarName: calendarName || null,
     calendarId: resolvedCalendarId,
     calendarIndex: resolvedCalendarIndex,
     eventId,
+    span,
   };
 
   if (args.flags['dry-run']) {
