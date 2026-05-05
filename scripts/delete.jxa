@@ -194,6 +194,17 @@
     }
 
     var spanArg = args.span || 'this';
+    if (spanArg !== 'this' && spanArg !== 'future' && spanArg !== 'all') {
+      return JSON.stringify({
+        ok: false,
+        error: { code: 'INVALID_ARGUMENT', message: '--span must be one of: this, future, all' }
+      });
+    }
+
+    if (!isRecurring && spanArg !== 'this') {
+      spanArg = 'this';
+    }
+
     var span;
     if (spanArg === 'all') {
       span = $.EKSpanAllEvents;
