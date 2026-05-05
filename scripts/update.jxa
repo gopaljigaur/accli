@@ -246,6 +246,7 @@
     }
 
     var spanArg = args.span || 'this';
+    // Guard for direct/standalone invocation outside the CLI (CLI validates first)
     if (spanArg !== 'this' && spanArg !== 'future' && spanArg !== 'all') {
       return JSON.stringify({
         ok: false,
@@ -257,14 +258,8 @@
       spanArg = 'this';
     }
 
-    var span;
-    if (spanArg === 'all') {
-      span = $.EKSpanAllEvents;
-    } else if (spanArg === 'future') {
-      span = $.EKSpanFutureEvents;
-    } else {
-      span = $.EKSpanThisEvent;
-    }
+    var spanMap = { all: $.EKSpanAllEvents, future: $.EKSpanFutureEvents, this: $.EKSpanThisEvent };
+    var span = spanMap[spanArg];
 
     if (isRecurring && spanArg === 'this') {
       warning = 'Recurring event: only this occurrence updated. Use --span future or --span all to update more.';

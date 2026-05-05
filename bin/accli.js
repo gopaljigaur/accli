@@ -7,6 +7,8 @@ const config = require('../lib/config');
 const { spawnSync } = require('child_process');
 const readline = require('readline');
 
+const VALID_SPANS = ['this', 'future', 'all'];
+
 // Parse command line arguments
 // Returns { ok: true, result: {...} } or { ok: false, error: {...} }
 function parseArgs(args) {
@@ -999,10 +1001,9 @@ async function handleUpdate(args) {
     span: args.flags.span || 'this',
   };
 
-  const validSpans = ['this', 'future', 'all'];
-  if (!validSpans.includes(scriptArgs.span)) {
+  if (!VALID_SPANS.includes(scriptArgs.span)) {
     output.outputError(
-      { code: ERROR_CODES.INVALID_ARGUMENT, message: `--span must be one of: ${validSpans.join(', ')}` },
+      { code: ERROR_CODES.INVALID_ARGUMENT, message: `--span must be one of: ${VALID_SPANS.join(', ')}` },
       { json: args.flags.json }
     );
     process.exit(EXIT_VALIDATION_ERROR);
@@ -1143,11 +1144,10 @@ async function handleDelete(args) {
     process.exit(EXIT_VALIDATION_ERROR);
   }
 
-  const validSpans = ['this', 'future', 'all'];
   const span = args.flags.span || 'this';
-  if (!validSpans.includes(span)) {
+  if (!VALID_SPANS.includes(span)) {
     output.outputError(
-      { code: ERROR_CODES.INVALID_ARGUMENT, message: `--span must be one of: ${validSpans.join(', ')}` },
+      { code: ERROR_CODES.INVALID_ARGUMENT, message: `--span must be one of: ${VALID_SPANS.join(', ')}` },
       { json: args.flags.json }
     );
     process.exit(EXIT_VALIDATION_ERROR);
