@@ -319,3 +319,43 @@ describe('--alert validation', () => {
     }
   });
 });
+
+describe('--span validation', () => {
+  test('delete --span invalid value exits 2', () => {
+    const tmp = makeTempHome();
+    try {
+      const r = runCli(['delete', 'Work', 'event-123', '--span', 'invalid', '--json'], { env: { ACCLI_CONFIG_PATH: path.join(tmp.dir, '.acclirc') } });
+      expect(r.status).toBe(2);
+      const data = JSON.parse(r.stdout);
+      expect(data.ok).toBe(false);
+      expect(data.error.code).toBe('INVALID_ARGUMENT');
+    } finally {
+      tmp.cleanup();
+    }
+  });
+
+  test('update --span invalid value exits 2', () => {
+    const tmp = makeTempHome();
+    try {
+      const r = runCli(['update', 'Work', 'event-123', '--summary', 'Test', '--span', 'invalid', '--json'], { env: { ACCLI_CONFIG_PATH: path.join(tmp.dir, '.acclirc') } });
+      expect(r.status).toBe(2);
+      const data = JSON.parse(r.stdout);
+      expect(data.ok).toBe(false);
+      expect(data.error.code).toBe('INVALID_ARGUMENT');
+    } finally {
+      tmp.cleanup();
+    }
+  });
+
+  test('delete --span all dry-run exits 0 with dryRun true', () => {
+    const tmp = makeTempHome();
+    try {
+      const r = runCli(['delete', 'Work', 'some-event-id', '--span', 'all', '--dry-run', '--json'], { env: { ACCLI_CONFIG_PATH: path.join(tmp.dir, '.acclirc') } });
+      expect(r.status).toBe(0);
+      const data = JSON.parse(r.stdout);
+      expect(data.dryRun).toBe(true);
+    } finally {
+      tmp.cleanup();
+    }
+  });
+});

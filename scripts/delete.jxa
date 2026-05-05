@@ -193,12 +193,22 @@
       // ignore
     }
 
-    if (isRecurring) {
-      warning = 'This is a recurring event; only this occurrence was deleted';
+    var spanArg = args.span || 'this';
+    var span;
+    if (spanArg === 'all') {
+      span = $.EKSpanAllEvents;
+    } else if (spanArg === 'future') {
+      span = $.EKSpanFutureEvents;
+    } else {
+      span = $.EKSpanThisEvent;
+    }
+
+    if (isRecurring && spanArg === 'this') {
+      warning = 'Recurring event: only this occurrence deleted. Use --span future or --span all to delete more.';
     }
 
     var err = Ref();
-    var removed = store.removeEventSpanError(event, $.EKSpanThisEvent, err);
+    var removed = store.removeEventSpanError(event, span, err);
     if (!removed) {
       var e = err[0];
       var msg = e ? unwrap(e.localizedDescription) : 'Unknown error';
@@ -213,7 +223,8 @@
       deleted: {
         id: args.eventId,
         calendar: calendarInfo.name,
-        calendarId: calendarInfo.id
+        calendarId: calendarInfo.id,
+        span: spanArg
       },
       warning: warning
     });

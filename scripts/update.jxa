@@ -245,8 +245,18 @@
       // ignore
     }
 
-    if (isRecurring) {
-      warning = 'This is a recurring event; only this occurrence was updated';
+    var spanArg = args.span || 'this';
+    var span;
+    if (spanArg === 'all') {
+      span = $.EKSpanAllEvents;
+    } else if (spanArg === 'future') {
+      span = $.EKSpanFutureEvents;
+    } else {
+      span = $.EKSpanThisEvent;
+    }
+
+    if (isRecurring && spanArg === 'this') {
+      warning = 'Recurring event: only this occurrence updated. Use --span future or --span all to update more.';
     }
 
     var targetAllDay = currentAllDay;
@@ -342,7 +352,7 @@
     }
 
     var err = Ref();
-    var saved = store.saveEventSpanError(event, $.EKSpanThisEvent, err);
+    var saved = store.saveEventSpanError(event, span, err);
     if (!saved) {
       var e = err[0];
       var msg = e ? unwrap(e.localizedDescription) : 'Unknown error';

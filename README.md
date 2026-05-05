@@ -87,6 +87,19 @@ accli delete Work <event-id> --dry-run
 accli update Work <event-id> --summary "New title" --dry-run --json
 ```
 
+## Recurring Event Scope
+
+Use `--span` on `delete` or `update` to control which occurrences of a recurring event are affected.
+
+- `--span this` (default) — only this occurrence
+- `--span future` — this and all future occurrences
+- `--span all` — all occurrences (deletes/updates the entire series)
+
+```bash
+accli delete Work <event-id> --span all
+accli update Work <event-id> --summary "Renamed" --span future
+```
+
 ## Recurring Events
 
 Create recurring events using `--recur` on the `create` command. Supported frequencies: `daily`, `weekly`, `monthly`, `yearly`.
