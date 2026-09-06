@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('fs');
+
 const output = require('../lib/output');
 
 describe('lib/output formatting', () => {
@@ -159,13 +161,43 @@ describe('lib/output formatting', () => {
     expect(text).toMatch(/No calendars found/);
   });
 
-  test('outputError prints NOT_AUTHORIZED tip in human mode', () => {
-    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  // Output goes to the descriptor rather than through console, so that
+  // process.exit cannot discard it; these assert on what is written there.
+  function captured(fd, run) {
+    const written = [];
+    const spy = jest.spyOn(fs, 'writeSync').mockImplementation((to, data) => {
+      if (to === fd) written.push(data.toString());
+      return data.length;
+    });
     try {
-      output.outputError({ code: 'NOT_AUTHORIZED', message: 'no' }, { json: false });
-      expect(spy.mock.calls.map((c) => c.join(' ')).join('\n')).toMatch(/Tip:/);
+      run();
     } finally {
       spy.mockRestore();
     }
+    return written.join('');
+  }
+
+  test('outputError prints NOT_AUTHORIZED tip in human mode', () => {
+    const text = captured(2, () =>
+      output.outputError({ code: 'NOT_AUTHORIZED', message: 'no' }, { json: false })
+    );
+    expect(text).toMatch(/Tip:/);
+    expect(text).toMatch(/Error \[NOT_AUTHORIZED\]/);
+  });
+
+  test('an error in json mode goes to stdout, as the parseable answer', () => {
+    const text = captured(1, () =>
+      output.outputError({ code: 'NOT_AUTHORIZED', message: 'no' }, { json: true })
+    );
+    expect(JSON.parse(text)).toEqual({ ok: false, error: { code: 'NOT_AUTHORIZED', message: 'no' } });
+  });
+
+  test('output is written whole, however large, in one descriptor write', () => {
+    // The bug this guards: console.log is async on a pipe and process.exit
+    // dropped whatever had not flushed, cutting JSON at about 8KB.
+    const big = { events: Array.from({ length: 500 }, (_, i) => ({ id: String(i), summary: 'x'.repeat(40) })) };
+    const text = captured(1, () => output.output(big, { json: true }));
+    expect(text.length).toBeGreaterThan(8192);
+    expect(JSON.parse(text)).toEqual(big);
   });
 });
