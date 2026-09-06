@@ -1,6 +1,6 @@
 {
   "name": "@gopaljigaur/accli",
-  "version": "1.2.4",
+  "version": "1.2.6",
   "description": "Apple Calendar CLI for macOS - manage calendars and events from the command line",
   "main": "lib/index.js",
   "bin": {
@@ -35,7 +35,8 @@
     "LICENSE"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "devDependencies": {
     "jest": "^29.7.0"

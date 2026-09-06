@@ -3,6 +3,7 @@
 
 const { runScript, ERROR_CODES, EXIT_VALIDATION_ERROR } = require('../lib/jxa-runner');
 const output = require('../lib/output');
+const { freeSlots } = require('../lib/freeslots');
 const config = require('../lib/config');
 const { spawnSync } = require('child_process');
 const readline = require('readline');
@@ -1247,6 +1248,10 @@ async function handleFreeBusy(args) {
   const result = await runScript('freebusy', scriptArgs);
 
   if (result.success) {
+    // The gaps between the bookings, which is what "when am I free" means.
+    // Computed from the same range that was asked for, so the answer covers
+    // exactly the window the caller named.
+    result.data.free = freeSlots(result.data.busy, args.flags.from, args.flags.to);
     output.output(result.data, {
       json: args.flags.json,
       formatter: output.formatFreeBusy,
